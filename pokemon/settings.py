@@ -101,23 +101,23 @@ AUTHENTICATION_BACKENDS = [
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': "SpeechTherapy",
-#         'USER': 'postgres',
-#         'PASSWORD': '1234',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#    }
-# }
-PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
 DATABASES = {
    'default': {
-       'ENGINE': 'django.db.backends.sqlite3',
-       'NAME': os.path.join(PROJECT_DIR, 'DB_SQLite.db'),
+       'ENGINE': 'django.db.backends.postgresql',
+       'NAME': "SpeechTherapy",
+        'USER': 'postgres',
+        'PASSWORD': '1234',
+        'HOST': 'localhost',
+        'PORT': '5432',
    }
 }
+#PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
+# DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': os.path.join(PROJECT_DIR, 'DB_SQLite.db'),
+#    }
+# }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
