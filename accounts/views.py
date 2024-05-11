@@ -118,7 +118,13 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
 
         # Create the profile
         return super().create(request, *args, **kwargs)
-    
+    def delete(self, request, *args, **kwargs):
+        profile_id = kwargs.get('pk')
+        profile = self.get_object()
+        if profile.user != request.user:
+            return Response({'detail': 'You are not authorized to delete this profile.'}, status=status.HTTP_403_FORBIDDEN)
+        profile.delete()
+        return Response({'detail': 'Profile deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
         
 class UserProfileListAPIView(generics.ListAPIView):

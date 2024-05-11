@@ -14,7 +14,6 @@ urlpatterns = [
     path('list_profiles/<int:user_id>/', UserProfileListAPIView.as_view(), name='user-profile-list'),
     path('login/profile', LoginView.as_view(), name='login'),
     path('process_text/', process_text, name='process_text'),
-
-
+    path('delete_profile/<int:pk>/', UserProfileListCreateView.as_view(), name='delete-profile'),
 
 ]
