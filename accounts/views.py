@@ -118,14 +118,18 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
 
         # Create the profile
         return super().create(request, *args, **kwargs)
-    def delete(self, request, *args, **kwargs):
-        profile_id = kwargs.get('pk')
-        profile = self.get_object()
-        if profile.user != request.user:
-            return Response({'detail': 'You are not authorized to delete this profile.'}, status=status.HTTP_403_FORBIDDEN)
-        profile.delete()
-        return Response({'detail': 'Profile deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
 
+class UserProfileDeleteByNameAPIView(generics.DestroyAPIView):
+    queryset = UserProfile.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        profile_name = kwargs.get('profile_name')
+        try:
+            profile = self.queryset.get(profile_name=profile_name, user=request.user)
+            profile.delete()
+            return Response({'detail': 'Profile deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        except UserProfile.DoesNotExist:
+            return Response({'detail': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
         
 class UserProfileListAPIView(generics.ListAPIView):
     serializer_class = UserProfileSerializer1
