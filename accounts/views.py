@@ -109,9 +109,15 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
         return UserProfile.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        profile_name = request.data.get('profile_name')
+
         # Check if the user already has four profiles
         if self.get_queryset().count() >= 4:
             return Response({'detail': 'You can create only four profiles.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the profile name already exists for the user
+        if self.get_queryset().filter(profile_name=profile_name).exists():
+            return Response({'detail': 'Profile name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Set the user field to the main user before saving the profile
         request.data['user'] = request.user.id
@@ -119,18 +125,40 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
         # Create the profile
         return super().create(request, *args, **kwargs)
 
-class UserProfileDeleteByNameAPIView(generics.DestroyAPIView):
-    queryset = UserProfile.objects.all()
+class DeleteUserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def delete(self, request, *args, **kwargs):
-        profile_name = kwargs.get('profile_name')
+    def delete(self, request, profile_id, *args, **kwargs):
         try:
-            profile = self.queryset.get(profile_name=profile_name, user=request.user)
+            print(f"Requesting deletion for profile ID: {profile_id}")
+            profile = UserProfile.objects.get(id=profile_id, user=request.user)
             profile.delete()
+            print(f"Profile deleted successfully: {profile_id}")
             return Response({'detail': 'Profile deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
         except UserProfile.DoesNotExist:
+            print(f"Profile not found for ID: {profile_id}")
             return Response({'detail': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
-        
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return Response({'detail': 'An error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserProfileDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id, profile_name, format=None):
+        print(f"Received request for user_id: {user_id}, profile_name: {profile_name}")
+        try:
+            profile = UserProfile.objects.get(user_id=user_id, profile_name=profile_name)
+            print(f"Profile found: {profile}")
+            return Response({'profile_id': profile.id}, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            print(f"Profile not found for user_id: {user_id}, profile_name: {profile_name}")
+            return Response({'detail': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return Response({'detail': 'An error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class UserProfileListAPIView(generics.ListAPIView):
     serializer_class = UserProfileSerializer1
 

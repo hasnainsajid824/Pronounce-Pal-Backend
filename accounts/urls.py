@@ -1,5 +1,5 @@
 from django.urls import path,include
-from accounts.views import SendPasswordResetEmailView, UserLoginView, UserProfileView, UserRegistrationView, UserPasswordResetView
+from accounts.views import DeleteUserProfileView, UserProfileDetailView, SendPasswordResetEmailView, UserLoginView, UserProfileView, UserRegistrationView, UserPasswordResetView
 from .views import LoginView, UserProfileListAPIView, UserProfileListCreateView, process_text
 
 
@@ -14,6 +14,6 @@ urlpatterns = [
     path('list_profiles/<int:user_id>/', UserProfileListAPIView.as_view(), name='user-profile-list'),
     path('login/profile', LoginView.as_view(), name='login'),
     path('process_text/', process_text, name='process_text'),
-    path('delete_profile/<str:profile_name>/', UserProfileDeleteByNameAPIView.as_view(), name='delete_profile'),
-
+    path('delete_profile/<int:profile_id>/', DeleteUserProfileView.as_view(), name='delete-profile'),
+    path('profile_id/<int:user_id>/<str:profile_name>/', UserProfileDetailView.as_view(), name='profile-detail'),
 ]
