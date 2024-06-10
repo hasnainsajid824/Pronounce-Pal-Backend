@@ -10,13 +10,10 @@ from rest_framework import generics, permissions
 from django.shortcuts import get_object_or_404
 import pandas as pd
 import Levenshtein
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import numpy as np
-import jellyfish
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
