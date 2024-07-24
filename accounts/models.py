@@ -77,7 +77,10 @@ class UserProfile(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     profile_name = models.CharField(max_length=255)
     age=models.CharField(max_length=20,blank=True,null=True)
-    password = models.CharField(max_length=255)  # You may want to use a more secure field like Django's PasswordField
-
+    password = models.CharField(max_length=255) 
+    total_words_attempted = models.IntegerField(default=0)
+    correctly_pronounced_words = models.IntegerField(default=0)
+    progress = models.FloatField(default=0.0)
+    
     def __str__(self):
         return self.profile_name

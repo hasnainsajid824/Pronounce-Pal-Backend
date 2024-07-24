@@ -112,7 +112,7 @@ class UserPasswordResetSerializer(serializers.Serializer):
 class UserProfileSerializer1(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['profile_name', 'password', 'user','age']
+        fields = ['profile_name', 'password', 'user','age', 'total_words_attempted', 'correctly_pronounced_words','progress']
         extra_kwargs = {'password': {'write_only': True}}
     
     # def create(self, validated_data):

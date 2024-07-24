@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, permissions
 from django.shortcuts import get_object_or_404
+from django.db.models import F
 import pandas as pd
 import Levenshtein
 from sklearn.preprocessing import LabelEncoder
@@ -19,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from .models import User, UserProfile  # Import your User model
 from django.contrib.auth import get_user_model
+from sklearn.model_selection import train_test_split
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.tokens import AccessToken
 import os
@@ -180,7 +182,7 @@ class LoginView(generics.CreateAPIView):
             token = get_tokens_for_user(user)
 
 
-            return Response({'detail': 'Login successful','token': token}, status=status.HTTP_200_OK)
+            return Response({'detail': 'Login successful','token': token, 'profile_id': user.id}, status=status.HTTP_200_OK)
         else:
             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -211,20 +213,20 @@ train_df['Encoded_Pronunciation'] = pronunciation_encoder.fit_transform(train_df
 
 model = load_model('Pronunounce_model(2).h5')
 
-def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
-    try:
-        input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
-    except ValueError:
-        df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
+# def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
+#     try:
+#         input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
+#     except ValueError:
+#         df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
     
-        # Find the word with the closest pronunciation in the entire dataset
-        closest_word_index = df['Levenshtein_Distance'].idxmin()
-        closest_word = df.loc[closest_word_index, 'Words']
-        return closest_word
-    train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
-    closest_word_index = train_df['Levenshtein_Distance'].idxmin()
-    closest_word = train_df.loc[closest_word_index, 'Words']
-    return closest_word
+#         # Find the word with the closest pronunciation in the entire dataset
+#         closest_word_index = df['Levenshtein_Distance'].idxmin()
+#         closest_word = df.loc[closest_word_index, 'Words']
+#         return closest_word
+#     train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
+#     closest_word_index = train_df['Levenshtein_Distance'].idxmin()
+#     closest_word = train_df.loc[closest_word_index, 'Words']
+#     return closest_word
 
 
 # from metaphone import doublemetaphone
@@ -255,6 +257,23 @@ def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
 #     closest_word = train_df.loc[closest_word_index, 'Words']
 #     return closest_word
 
+
+def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
+    try:
+        input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
+    except ValueError:
+        df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
+        closest_word_index = df['Levenshtein_Distance'].idxmin()
+        closest_word = df.loc[closest_word_index, 'Words']
+        distance = df.loc[closest_word_index, 'Levenshtein_Distance']
+        return closest_word, distance
+    
+    train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
+    closest_word_index = train_df['Levenshtein_Distance'].idxmin()
+    closest_word = train_df.loc[closest_word_index, 'Words']
+    distance = train_df.loc[closest_word_index, 'Levenshtein_Distance']
+    return closest_word, distance
+
 def urdu_tokenizer(text, char_to_index):
     tokens = []
     for char in text:
@@ -275,26 +294,65 @@ def predict_pronunciation(new_urdu_word):
     predict_pronunciation = pro_tokenizer(predicted_pronunciation_indices, pronounce_char)
     return predict_pronunciation.upper()
 
+
+def calculate_accuracy(distance, max_distance):
+    return max(0, 100 - (distance / max_distance) * 100)
+
+def update_profile_progress(profile, accuracy):
+    profile.total_words_attempted = F('total_words_attempted') + 1
+    profile.correctly_pronounced_words = F('correctly_pronounced_words') + (1 if accuracy == 100 else 0)
+    profile.progress = F('correctly_pronounced_words') * 100 / F('total_words_attempted')
+    profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress'])
+
+
 @csrf_exempt
 def process_text(request):
     if request.method == 'POST':
         data = request.POST.get('data')
+        profile_id = request.POST.get('profile_id')
         print(data)
         if not data:
             return JsonResponse({'error': 'No data provided'}, status=400)
 
         input_words = data.split()
         predicted_pronunciations = []
+
         for word in input_words:
             predicted_pronunciation = predict_pronunciation(word)
             predicted_pronunciations.append(predicted_pronunciation)
 
         combined_pronunciation = ' '.join(predicted_pronunciations)
-        closest_word = find_closest_word(combined_pronunciation, train_df, pronunciation_encoder)
+        combined_input = ' '.join(input_words)
+        closest_word, distance = find_closest_word(combined_pronunciation, train_df, pronunciation_encoder)
 
-        if closest_word:
-            return JsonResponse({'closest_word': closest_word}, status=200)
-        else:
-            return JsonResponse({'error': 'No closest word found'}, status=404)
+        max_length = max(len(closest_word), len(combined_input))
+
+        # Calculate accuracy
+        accuracy = calculate_accuracy(distance, max_length)
+
+
+        try:
+            profile = UserProfile.objects.get(id=profile_id)
+            update_profile_progress(profile, accuracy)
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'error': 'Profile not found'}, status=404)
+
+        return JsonResponse({'closest_word': closest_word, 'accuracy': accuracy}, status=200)
     else:
         return HttpResponse("Method not allowed", status=405)
+
+
+@api_view(['GET'])
+def get_child_progress(request, profile_id):
+    try:
+        profile = UserProfile.objects.get(id=profile_id, user=request.user)
+        progress_data = {
+            'total_words_attempted': profile.total_words_attempted,
+            'correctly_pronounced_words': profile.correctly_pronounced_words,
+            'progress': profile.progress,
+        }
+        return Response(progress_data, status=status.HTTP_200_OK)
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
