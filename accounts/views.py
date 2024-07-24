@@ -342,17 +342,17 @@ def process_text(request):
         return HttpResponse("Method not allowed", status=405)
 
 
-@api_view(['GET'])
-def get_child_progress(request, profile_id):
-    try:
-        profile = UserProfile.objects.get(id=profile_id, user=request.user)
-        progress_data = {
-            'total_words_attempted': profile.total_words_attempted,
-            'correctly_pronounced_words': profile.correctly_pronounced_words,
-            'progress': profile.progress,
-        }
-        return Response(progress_data, status=status.HTTP_200_OK)
-    except UserProfile.DoesNotExist:
-        return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class GetChildProgressView(APIView):
+    def get(self, request, profile_id):
+        try:
+            profile = UserProfile.objects.get(id=profile_id, user=request.user)
+            progress_data = {
+                'total_words_attempted': profile.total_words_attempted,
+                'correctly_pronounced_words': profile.correctly_pronounced_words,
+                'progress': profile.progress,
+            }
+            return Response(progress_data, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
