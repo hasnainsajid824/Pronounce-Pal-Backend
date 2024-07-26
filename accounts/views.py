@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from accounts.serializers import LoginSerializer, SendPasswordResetEmailSerializer, UserChangePasswordSerializer, UserLoginSerializer, UserPasswordResetSerializer, UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer
+from accounts.serializers import LoginSerializer, SendPasswordResetEmailSerializer, UserChangePasswordSerializer, UserLoginSerializer, UserPasswordResetSerializer, UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer, ResetPasswordSerializer, VerifyOTPSerializer, SendOTPSerializer
 from django.contrib.auth import authenticate
 from accounts.renderers import UserRenderer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -18,7 +18,7 @@ import numpy as np
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
-from .models import User, UserProfile  # Import your User model
+from .models import User, UserProfile  
 from django.contrib.auth import get_user_model
 from sklearn.model_selection import train_test_split
 from rest_framework.authtoken.models import Token
@@ -93,9 +93,65 @@ class UserPasswordResetView(APIView):
     serializer.is_valid(raise_exception=True)
     return Response({'msg':'Password Reset Successfully'}, status=status.HTTP_200_OK)
 
+class SendOTPView(generics.GenericAPIView):
+    serializer_class = SendOTPSerializer
 
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'Email not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        otp = get_random_string(length=6, allowed_chars='0123456789')
+        user.profile.otp = otp
+        user.profile.save()
 
+        send_mail(
+            'Your OTP Code',
+            f'Your OTP code is {otp}.',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+
+        return Response({'message': 'OTP sent to email'}, status=status.HTTP_200_OK)
+
+class VerifyOTPView(generics.GenericAPIView):
+    serializer_class = VerifyOTPSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        otp = serializer.validated_data['otp']
+        user_profile = UserProfile.objects.filter(otp=otp).first()
+
+        if user_profile:
+            return Response({'message': 'OTP verified'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPasswordView(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        otp = serializer.validated_data['otp']
+        new_password = serializer.validated_data['new_password']
+        user_profile = UserProfile.objects.filter(otp=otp).first()
+
+        if user_profile:
+            user = user_profile.user
+            user.set_password(new_password)
+            user.save()
+            user_profile.otp = None
+            user_profile.save()
+            return Response({'message': 'Password reset successful'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 #________________________________________________________________________________________________________________________
 from rest_framework import generics, status
 from django.contrib.auth import authenticate, login
@@ -186,6 +242,25 @@ class LoginView(generics.CreateAPIView):
         else:
             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+class GetChildProgressView(APIView):
+
+    def get(self, request, profile_id, *args, **kwargs):
+        try:
+            profile = UserProfile.objects.get(id=profile_id)
+            progress_data = {
+                'total_words_attempted': profile.total_words_attempted,
+                'correctly_pronounced_words': profile.correctly_pronounced_words,
+                'progress': profile.progress,
+            }
+            return Response(progress_data, status=status.HTTP_200_OK)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            # Log the error for detailed insight
+            print(f"Error occurred: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 df = pd.read_csv('Words_For_Kids.csv')
 df = df.dropna(subset=['Pronunciation'])
@@ -265,14 +340,26 @@ def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
         df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
         closest_word_index = df['Levenshtein_Distance'].idxmin()
         closest_word = df.loc[closest_word_index, 'Words']
-        distance = df.loc[closest_word_index, 'Levenshtein_Distance']
-        return closest_word, distance
+        close_pronunciation = df.loc[closest_word_index, 'Pronunciation']
+        # For Accuracy
+        distance = Levenshtein.distance(input_pronunciation.split(), close_pronunciation.split())
+        max_length = max(len(input_pronunciation.split()), len(close_pronunciation.split()))
+        if max_length == 0:
+            distance = 0
+        similarity_percentage = (1 - distance / max_length) * 100
+        return closest_word, similarity_percentage
     
     train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
     closest_word_index = train_df['Levenshtein_Distance'].idxmin()
     closest_word = train_df.loc[closest_word_index, 'Words']
-    distance = train_df.loc[closest_word_index, 'Levenshtein_Distance']
-    return closest_word, distance
+    close_pronunciation = df.loc[closest_word_index, 'Pronunciation']
+    # For Accuracy
+    distance = Levenshtein.distance(input_pronunciation.split(), close_pronunciation.split())
+    max_length = max(len(input_pronunciation.split()), len(close_pronunciation.split()))
+    if max_length == 0:
+        distance = 0
+    similarity_percentage = (1 - distance / max_length) * 100
+    return closest_word, similarity_percentage
 
 def urdu_tokenizer(text, char_to_index):
     tokens = []
@@ -324,35 +411,16 @@ def process_text(request):
         combined_pronunciation = ' '.join(predicted_pronunciations)
         combined_input = ' '.join(input_words)
         closest_word, distance = find_closest_word(combined_pronunciation, train_df, pronunciation_encoder)
-
-        max_length = max(len(closest_word), len(combined_input))
-
-        # Calculate accuracy
-        accuracy = calculate_accuracy(distance, max_length)
-
-
+        
+        print(distance)
         try:
             profile = UserProfile.objects.get(id=profile_id)
-            update_profile_progress(profile, accuracy)
+            update_profile_progress(profile, distance)
         except UserProfile.DoesNotExist:
             return JsonResponse({'error': 'Profile not found'}, status=404)
 
-        return JsonResponse({'closest_word': closest_word, 'accuracy': accuracy}, status=200)
+        return JsonResponse({'closest_word': closest_word, 'accuracy': distance}, status=200)
     else:
         return HttpResponse("Method not allowed", status=405)
 
 
-class GetChildProgressView(APIView):
-    def get(self, request, profile_id):
-        try:
-            profile = UserProfile.objects.get(id=profile_id, user=request.user)
-            progress_data = {
-                'total_words_attempted': profile.total_words_attempted,
-                'correctly_pronounced_words': profile.correctly_pronounced_words,
-                'progress': profile.progress,
-            }
-            return Response(progress_data, status=status.HTTP_200_OK)
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

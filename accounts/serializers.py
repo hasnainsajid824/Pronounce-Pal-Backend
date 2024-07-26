@@ -106,7 +106,16 @@ class UserPasswordResetSerializer(serializers.Serializer):
     except DjangoUnicodeDecodeError as identifier:
       PasswordResetTokenGenerator().check_token(user, token)
       raise serializers.ValidationError('Token is not Valid or Expired')
-  
+
+class SendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class VerifyOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=6)
+
+class ResetPasswordSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=6)
+    new_password = serializers.CharField(write_only=True)
 
 
 class UserProfileSerializer1(serializers.ModelSerializer):

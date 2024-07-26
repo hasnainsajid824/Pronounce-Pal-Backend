@@ -1,7 +1,6 @@
 from django.urls import path,include
 from accounts.views import DeleteUserProfileView, UserProfileDetailView, SendPasswordResetEmailView, UserLoginView, UserProfileView, UserRegistrationView, UserPasswordResetView
-from .views import LoginView, UserProfileListAPIView, UserProfileListCreateView, process_text, GetChildProgressView
-
+from .views import LoginView, UserProfileListAPIView, UserProfileListCreateView, process_text, GetChildProgressView, SendOTPView, VerifyOTPView, ResetPasswordView
 
 urlpatterns = [
     path('register/', UserRegistrationView.as_view(), name='register'),
@@ -17,4 +16,7 @@ urlpatterns = [
     path('delete_profile/<int:profile_id>/', DeleteUserProfileView.as_view(), name='delete-profile'),
     path('profile_id/<int:user_id>/<str:profile_name>/', UserProfileDetailView.as_view(), name='profile-detail'),
     path('profile-progress/<int:profile_id>/', GetChildProgressView.as_view(), name='profile_progress'),  
+    path('send-otp/', SendOTPView.as_view(), name='send-otp'),
+    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
 ]
