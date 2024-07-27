@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager,AbstractBaseUser
-
+from django.utils import timezone
 #  Custom User Manager
 class UserManager(BaseUserManager):
   def create_user(self, email, first_name, last_name, password=None):
@@ -84,3 +84,11 @@ class UserProfile(models.Model):
     
     def __str__(self):
         return self.profile_name
+
+class ResetPasswordToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        return (timezone.now() - self.created_at).total_seconds() < 600

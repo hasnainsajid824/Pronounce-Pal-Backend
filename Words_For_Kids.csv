@@ -100,41 +100,42 @@
 خالہ,X A_A L A_A
 مامو,M A_A M U_U
 گاجر,G A_A D_Z R R
-قران,Q A R A A N
-کتاب پڑھنا,K U T_D A_A B A R A_A A A A_A__
-کھانا پکانا,K_H A_A N A_A P A A A_A A
-خوشی منانا,X O_O S_H I_I N N N N A A A
-گانا گانا,G A_A N A_A G A_A A A_A
-کتا بھونکنا,K U T_D A_A B_U U K N A A A_A
-گلاب کھلنا,G A L A_A H A K A A A A_A
-ماں باپ,M A_A N B A_A A
-کھیل کھیلنا,K_H A_E L H A_H I_I N A A
-گاڑی چلانا,G A_A R_R I Y T_S A A A A A_A_
-کمر بند,K A M A A B A N D_D
+قران,Q A R A_A N
+کتاب پڑھنا,K U T_D A_A B P A R_R_H N A_A
+کھانا پکانا,K_H A_A N A_A P A K A_A N A_A
+خوشی منانا,X O_O S_H I_I M U N A_A N A_A
+گانا گانا,G A_A N A_A G A_A N A_A
+کتا بھونکنا,K U T_D A_AA B_H O_N K A N N A
+گلاب کھلنا,G I L A_A B K_H A_Y L L A_A
+ماں باپ,M A_A N B A_A P
+کھیل کھیلنا,K_H A_Y L K_H A_Y L L A_A
+گاڑی چلانا,G A_A R_R I_I T_S A L A_A N A_A
+کمر بند,K U M A R B A N D_D
 خواب دیکھنا,X A V A A B D_D I_I K N A AA
-چاند نکلنا,T_S A_A N D_D A A L A A A A A
-سورج غروب ہونا,S O_O R D_Z_G G_G G_O R G H A O A A
-چھتری کھلنا,T_S_H A T_D R I_I K A A A A AA
-کھلونا دکھانا,K_H A L O_U N A_A D_D A A A A_N_Y
+چاند نکلنا,T_S A_A N D_D N I K A N N A_A
+سورج غروب,S U_U R D_D G_G A R U_U B
+چھتری کھلنا,T_S_H A T_D R I_I K_H A L N A_A
+کھلونا دکھانا,K_H A L O_O N A D_D U K_H A_A N_A_A
 خوبصورت ہونا,X O_L B S S U_U R D_D A A A A N A_A
-گیند پھینکنا,G A_E N D_D_H A H I N A N A_A
+گیند پھینکنا,G A_E N D_D P_H A_E N A N N A
 خوشبو آنا,X O_O S_H B B B A N A A_A
-دوستی کرنا,D_D O_O S T D_D I K K A A A A
-پانی پینا,P A_A N I_I P I_I N A_A
-گرمی ہونا,G A R M I J A_A U N A A_
-گاڑی گزرنا,G A_A R_R I_I Z Z E R A A AA
-گیند اٹھانا,G A_Y N D_D A A_A A_A A AA
+دوستی کرنا,D_D O_O S T D I_I K A R N A_A
+پانی پینا,P A_A N I_I P A_E N A_A
+گرمی ہونا,G A R M I_I H O_O N A_A
+سردی لگنا,S A R D_D I_I L A G N A_A
+گاڑی گزرنا,G A_A R_R I_I G U Z A R N A_A
+گیند اٹھانا,G A_E N D_D U T_H A_A N A_A
 شیر,S_H I_I R
 ہاتھی,H A_A T_D_H I_I
 چڑیا,T_S A R_R A_A_AA
 جہاز,D_Z A H A_A Z
 پہاڑ,P A H A_A R_R
 درخت,D_D A R X A T D
-ميز,M U Z
+ميز,M I_I Z
 کرسی,K A R S I_I
 لومڑی,L O_O M R_R I_I
 کیلا,K A_I L A_A
-گائے,G A_A A Y
+گائے,G A_A I Y_N
 مٹر,M U T A R
 کھیرا,K_H A_Y R A_A
 پیاز,P I J A_A Z
@@ -148,6 +149,8 @@
 شام,S_H A_A M
 پاؤں,P A_A U_O_N
 ٹانگ,T A_A N GG
-السلام,A L L I L A_A MA L I_I K M
-اسلام,A S L A_A MA L I_I K M
-سلام,S A L A_A MA L I_I K M
+السلام علیکم,A L L I L A_A M A L I_I K M
+اسلام,A S L A_A M
+سلام,S A L A_A M
+انا جانا,A N A_A D_Z A_A N A_A
+ادھر ادھر,U D_D H_A R U D_D H_A R

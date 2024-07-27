@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from accounts.serializers import LoginSerializer, SendPasswordResetEmailSerializer, UserChangePasswordSerializer, UserLoginSerializer, UserPasswordResetSerializer, UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer, ResetPasswordSerializer, VerifyOTPSerializer, SendOTPSerializer
+from accounts.serializers import LoginSerializer, UserLoginSerializer,  UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 from django.contrib.auth import authenticate
 from accounts.renderers import UserRenderer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -21,8 +21,11 @@ from django.http import HttpResponse
 from .models import User, UserProfile  
 from django.contrib.auth import get_user_model
 from sklearn.model_selection import train_test_split
+from django.core.mail import send_mail
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.tokens import AccessToken
+from django.utils.crypto import get_random_string
+from .models import ResetPasswordToken
 import os
 
 User = get_user_model()
@@ -71,87 +74,49 @@ class UserProfileView(APIView):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
 
-# class UserChangePasswordView(APIView):
-#   renderer_classes = [UserRenderer]
-#   permission_classes = [IsAuthenticated]
-#   def post(self, request, format=None):
-#     serializer = UserChangePasswordSerializer(data=request.data, context={'user':request.user})
-#     serializer.is_valid(raise_exception=True)
-#     return Response({'msg':'Password Changed Successfully'}, status=status.HTTP_200_OK)
 
-class SendPasswordResetEmailView(APIView):
-  renderer_classes = [UserRenderer]
-  def post(self, request, *args, **kwargs):
-    serializer = SendPasswordResetEmailSerializer(data=request.data, context={'request': request})
-    serializer.is_valid(raise_exception=True)
-    return Response({'msg':'Password Reset link send. Please check your Email'}, status=status.HTTP_200_OK)
 
-class UserPasswordResetView(APIView):
-  renderer_classes = [UserRenderer]
-  def post(self, request, uid, token, format=None):
-    serializer = UserPasswordResetSerializer(data=request.data, context={'uid':uid, 'token':token})
-    serializer.is_valid(raise_exception=True)
-    return Response({'msg':'Password Reset Successfully'}, status=status.HTTP_200_OK)
-
-class SendOTPView(generics.GenericAPIView):
-    serializer_class = SendOTPSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+class PasswordResetView(APIView):
+    def post(self, request):
+        serializer = PasswordResetSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         try:
             user = User.objects.get(email=email)
+            token = get_random_string(length=6, allowed_chars='0123456789')
+            ResetPasswordToken.objects.create(user=user, token=token)
+            send_mail(
+                'Password Reset OTP',
+                f'Your OTP for password reset is: {token}',
+                'your-email@gmail.com',
+                [email],
+                fail_silently=False,
+            )
+            return Response({'message': 'OTP sent to email'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
-            return Response({'error': 'Email not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'User with this email does not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
-        otp = get_random_string(length=6, allowed_chars='0123456789')
-        user.profile.otp = otp
-        user.profile.save()
-
-        send_mail(
-            'Your OTP Code',
-            f'Your OTP code is {otp}.',
-            settings.DEFAULT_FROM_EMAIL,
-            [email],
-            fail_silently=False,
-        )
-
-        return Response({'message': 'OTP sent to email'}, status=status.HTTP_200_OK)
-
-class VerifyOTPView(generics.GenericAPIView):
-    serializer_class = VerifyOTPSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        otp = serializer.validated_data['otp']
-        user_profile = UserProfile.objects.filter(otp=otp).first()
-
-        if user_profile:
-            return Response({'message': 'OTP verified'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
-
-class ResetPasswordView(generics.GenericAPIView):
-    serializer_class = ResetPasswordSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         otp = serializer.validated_data['otp']
         new_password = serializer.validated_data['new_password']
-        user_profile = UserProfile.objects.filter(otp=otp).first()
+        confirm_password = serializer.validated_data['confirm_password']
 
-        if user_profile:
-            user = user_profile.user
-            user.set_password(new_password)
+        if new_password != confirm_password:
+            return Response({'error': 'Passwords do not match'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            reset_token = ResetPasswordToken.objects.get(token=otp)
+            user = reset_token.user
+            user.password = user.make_password(new_password)
             user.save()
-            user_profile.otp = None
-            user_profile.save()
-            return Response({'message': 'Password reset successful'}, status=status.HTTP_200_OK)
-        else:
+            reset_token.delete()
+            return Response({'message': 'Password reset successfully'}, status=status.HTTP_200_OK)
+        except ResetPasswordToken.DoesNotExist:
             return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
 #________________________________________________________________________________________________________________________
 from rest_framework import generics, status
 from django.contrib.auth import authenticate, login
@@ -225,20 +190,19 @@ class LoginView(generics.CreateAPIView):
     serializer_class = LoginSerializer
 
     def create(self, request, *args, **kwargs):
+        profile_id = int(request.data.get('profile_id'))
         profile_name = request.data.get('profile_name')
         password = request.data.get('password')
+        if not profile_name or not password:
+            return Response({'detail': 'Profile name and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Authenticate user using the provided profile credentials
-        user = authenticate(request, profile_name=profile_name, password=password)
-        print(user)
+        try:
+            profile = get_object_or_404(UserProfile, id =profile_id,profile_name=profile_name)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        if user:
-            # If authentication is successful, generate or retrieve the token
-            # token, created = Token.objects.get_or_create(user=user)
-            token = get_tokens_for_user(user)
-
-
-            return Response({'detail': 'Login successful','token': token, 'profile_id': user.id}, status=status.HTTP_200_OK)
+        if profile.password == password:
+            return Response({'detail': 'Login successful', 'profile_id': profile.id}, status=status.HTTP_200_OK)
         else:
             return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -337,6 +301,7 @@ def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
     try:
         input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
     except ValueError:
+        print(input_pronunciation)
         df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
         closest_word_index = df['Levenshtein_Distance'].idxmin()
         closest_word = df.loc[closest_word_index, 'Words']
@@ -386,9 +351,18 @@ def calculate_accuracy(distance, max_distance):
     return max(0, 100 - (distance / max_distance) * 100)
 
 def update_profile_progress(profile, accuracy):
-    profile.total_words_attempted = F('total_words_attempted') + 1
-    profile.correctly_pronounced_words = F('correctly_pronounced_words') + (1 if accuracy == 100 else 0)
-    profile.progress = F('correctly_pronounced_words') * 100 / F('total_words_attempted')
+    # Update the total words attempted
+    profile.total_words_attempted += 1
+
+    if accuracy == 100:
+        profile.correctly_pronounced_words += 1
+
+    # Calculate progress as the ratio of correctly pronounced words to total words attempted
+    if profile.total_words_attempted > 0:
+        profile.progress = (profile.correctly_pronounced_words / profile.total_words_attempted) * 100
+    else:
+        profile.progress = 0.0
+
     profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress'])
 
 
