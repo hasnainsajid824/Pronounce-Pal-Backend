@@ -135,10 +135,10 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
         if self.get_queryset().count() >= 4:
             return Response({'detail': 'You can create only four profiles.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        
         # Check if the profile name already exists for the user
-        if self.get_queryset().filter(profile_name=profile_name).exists():
+        if UserProfile.objects.filter(user=self.request.user, profile_name=profile_name).exists():
             return Response({'detail': 'Profile name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
-
         # Set the user field to the main user before saving the profile
         request.data['user'] = request.user.id
 
