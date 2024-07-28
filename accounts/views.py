@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from accounts.serializers import LoginSerializer, UserLoginSerializer,  UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
+from accounts.serializers import LoginSerializer, UserLoginSerializer,  UserProfileSerializer, UserProfileSerializer1, UserRegistrationSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer, UserProfileEditSerializer
 from django.contrib.auth import authenticate
 from accounts.renderers import UserRenderer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -145,6 +145,19 @@ class UserProfileListCreateView(generics.ListCreateAPIView):
         # Create the profile
         return super().create(request, *args, **kwargs)
 
+class UserProfileEditView(APIView):
+    def put(self, request, profile_id, *args, **kwargs):
+        try:
+            user_profile = UserProfile.objects.get(id=profile_id, user=request.user)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserProfileEditSerializer(user_profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Profile updated successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class DeleteUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -212,11 +225,15 @@ class GetChildProgressView(APIView):
         try:
             profile = UserProfile.objects.get(id=profile_id)
             progress_data = {
+                'age': profile.age,
+                'password': profile.password,
                 'total_words_attempted': profile.total_words_attempted,
                 'correctly_pronounced_words': profile.correctly_pronounced_words,
                 'progress': profile.progress,
+                'words_to_focus': profile.words_to_focus
             }
-            return Response(progress_data, status=status.HTTP_200_OK)
+            # return Response(progress_data, status=status.HTTP_200_OK)
+            return JsonResponse(progress_data, json_dumps_params={'ensure_ascii': False}, status=status.HTTP_200_OK)
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -346,16 +363,35 @@ def predict_pronunciation(new_urdu_word):
     predict_pronunciation = pro_tokenizer(predicted_pronunciation_indices, pronounce_char)
     return predict_pronunciation.upper()
 
+# def update_profile_progress(profile, accuracy):
+#     # Update the total words attempted
+#     profile.total_words_attempted += 1
 
-def calculate_accuracy(distance, max_distance):
-    return max(0, 100 - (distance / max_distance) * 100)
+#     if accuracy == 100:
+#         profile.correctly_pronounced_words += 1
 
-def update_profile_progress(profile, accuracy):
+#     # Calculate progress as the ratio of correctly pronounced words to total words attempted
+#     if profile.total_words_attempted > 0:
+#         profile.progress = (profile.correctly_pronounced_words / profile.total_words_attempted) * 100
+#     else:
+#         profile.progress = 0.0
+
+#     profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress'])
+
+
+def update_profile_progress(profile, accuracy, word,):
     # Update the total words attempted
     profile.total_words_attempted += 1
 
     if accuracy == 100:
         profile.correctly_pronounced_words += 1
+        # Remove the word from the words_to_focus list if it exists
+        if word in profile.words_to_focus:
+            profile.words_to_focus.remove(word)
+    else:
+        # Add the word to the words_to_focus list if it doesn't exist
+        if word not in profile.words_to_focus:
+            profile.words_to_focus.append(word)
 
     # Calculate progress as the ratio of correctly pronounced words to total words attempted
     if profile.total_words_attempted > 0:
@@ -363,8 +399,8 @@ def update_profile_progress(profile, accuracy):
     else:
         profile.progress = 0.0
 
-    profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress'])
-
+    # Save the updated fields
+    profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress', 'words_to_focus'])
 
 @csrf_exempt
 def process_text(request):
@@ -389,7 +425,7 @@ def process_text(request):
         print(distance)
         try:
             profile = UserProfile.objects.get(id=profile_id)
-            update_profile_progress(profile, distance)
+            update_profile_progress(profile, distance, closest_word)
         except UserProfile.DoesNotExist:
             return JsonResponse({'error': 'Profile not found'}, status=404)
 

@@ -50,7 +50,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class UserProfileSerializer1(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['profile_name', 'password', 'user','age', 'total_words_attempted', 'correctly_pronounced_words','progress']
+        fields = ['profile_name', 'password', 'user','age', 'total_words_attempted', 'correctly_pronounced_words','progress', 'words_to_focus']
         extra_kwargs = {'password': {'write_only': True}}
     
     # def create(self, validated_data):
@@ -61,3 +61,18 @@ class UserProfileSerializer1(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     profile_name = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class UserProfileEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['profile_name', 'age', 'password']
+
+    def update(self, instance, validated_data):
+        instance.profile_name = validated_data.get('profile_name', instance.profile_name)
+        instance.age = validated_data.get('age', instance.age)
+        password = validated_data.get('password', instance.password)
+        if password:
+            instance.password = password  
+        instance.save()
+        return instance
