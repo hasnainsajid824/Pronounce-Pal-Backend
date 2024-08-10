@@ -262,10 +262,10 @@ pronounce_char = {
       26: 'x'
 }
 
-train_df, _ = train_test_split(df, test_size=0.2, random_state=42)
+# train_df, _ = train_test_split(df, test_size=0.2, random_state=42)
 
-pronunciation_encoder = LabelEncoder()
-train_df['Encoded_Pronunciation'] = pronunciation_encoder.fit_transform(train_df['Pronunciation'])
+# pronunciation_encoder = LabelEncoder()
+# train_df['Encoded_Pronunciation'] = pronunciation_encoder.fit_transform(train_df['Pronunciation'])
 
 model = load_model('Pronunounce_model(2).h5')
 
@@ -314,26 +314,14 @@ model = load_model('Pronunounce_model(2).h5')
 #     return closest_word
 
 
-def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
-    try:
-        input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
-    except ValueError:
-        print(input_pronunciation)
-        df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
-        closest_word_index = df['Levenshtein_Distance'].idxmin()
-        closest_word = df.loc[closest_word_index, 'Words']
-        close_pronunciation = df.loc[closest_word_index, 'Pronunciation']
-        # For Accuracy
-        distance = Levenshtein.distance(input_pronunciation.split(), close_pronunciation.split())
-        max_length = max(len(input_pronunciation.split()), len(close_pronunciation.split()))
-        if max_length == 0:
-            distance = 0
-        similarity_percentage = (1 - distance / max_length) * 100
-        return closest_word, similarity_percentage
-    
-    train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
-    closest_word_index = train_df['Levenshtein_Distance'].idxmin()
-    closest_word = train_df.loc[closest_word_index, 'Words']
+def find_closest_word(input_pronunciation, train_df):
+    # try:
+    #     input_encoded = pronunciation_encoder.transform([input_pronunciation])[0]
+    # except ValueError:
+    print(input_pronunciation)
+    df['Levenshtein_Distance'] = df['Pronunciation'].apply(lambda x: Levenshtein.distance(input_pronunciation, x))
+    closest_word_index = df['Levenshtein_Distance'].idxmin()
+    closest_word = df.loc[closest_word_index, 'Words']
     close_pronunciation = df.loc[closest_word_index, 'Pronunciation']
     # For Accuracy
     distance = Levenshtein.distance(input_pronunciation.split(), close_pronunciation.split())
@@ -342,6 +330,18 @@ def find_closest_word(input_pronunciation, train_df, pronunciation_encoder):
         distance = 0
     similarity_percentage = (1 - distance / max_length) * 100
     return closest_word, similarity_percentage
+    
+    # train_df['Levenshtein_Distance'] = train_df['Encoded_Pronunciation'].apply(lambda x: Levenshtein.distance(str(input_encoded), str(x)))
+    # closest_word_index = train_df['Levenshtein_Distance'].idxmin()
+    # closest_word = train_df.loc[closest_word_index, 'Words']
+    # close_pronunciation = df.loc[closest_word_index, 'Pronunciation']
+    # # For Accuracy
+    # distance = Levenshtein.distance(input_pronunciation.split(), close_pronunciation.split())
+    # max_length = max(len(input_pronunciation.split()), len(close_pronunciation.split()))
+    # if max_length == 0:
+    #     distance = 0
+    # similarity_percentage = (1 - distance / max_length) * 100
+    # return closest_word, similarity_percentage
 
 def urdu_tokenizer(text, char_to_index):
     tokens = []
@@ -385,19 +385,16 @@ def update_profile_progress(profile, accuracy, word,):
 
     if accuracy == 100:
         profile.correctly_pronounced_words += 1
-        # Remove the word from the words_to_focus list if it exists
         if word in profile.words_to_focus:
             profile.words_to_focus.remove(word)
     else:
-        # Add the word to the words_to_focus list if it doesn't exist
         if word not in profile.words_to_focus:
             profile.words_to_focus.append(word)
 
-    # Calculate progress as the ratio of correctly pronounced words to total words attempted
     if profile.total_words_attempted > 0:
         profile.progress = (profile.correctly_pronounced_words / profile.total_words_attempted) * 100
     else:
-        profile.progress = 0.0
+        profile.progress = 0.0 
 
     # Save the updated fields
     profile.save(update_fields=['total_words_attempted', 'correctly_pronounced_words', 'progress', 'words_to_focus'])
@@ -420,7 +417,7 @@ def process_text(request):
 
         combined_pronunciation = ' '.join(predicted_pronunciations)
         combined_input = ' '.join(input_words)
-        closest_word, distance = find_closest_word(combined_pronunciation, train_df, pronunciation_encoder)
+        closest_word, distance = find_closest_word(combined_pronunciation, df)
         
         print(distance)
         try:
